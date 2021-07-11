@@ -125,16 +125,6 @@ class Tax(Base):
     def __hash__(self):
         return hash(self.tax_id)
 
-    def fix_parent(self, taxes):
-        if self.parent_tax_id is None:
-            return None
-        else:
-            self.parent = taxes[self.parent_tax_id]
-
-    def fix_name(self, names):
-        if self.name is None:
-            self.name = names[self.tax_id]
-
     def get_ancestor(self, rank):
         if self.rank == rank:
             return self
@@ -168,6 +158,7 @@ def dl_taxdmp_zip(outfile):
                 humanize.naturalsize(total)
             ))
             sys.stdout.flush()
+        print()
 
 
 def read_names_dmp(fp):
@@ -181,12 +172,14 @@ def read_names_dmp(fp):
 
 def read_nodes_dmp(fp):
     taxes = {}
+    i = 0
     for line in fp:
+        i += 1
         row = line.decode('utf-8').rstrip(LINE_TERMINATOR).split(FIELD_TERMINATOR)
         if row[0] == '1':
-            taxes[row[0]] = Tax(tax_id=row[0], rank=row[2])
+            taxes[row[0]] = Tax(id=i, tax_id=row[0], rank=row[2])
         else:
-            taxes[row[0]] = Tax(tax_id=row[0], parent_tax_id=row[1], rank=row[2])
+            taxes[row[0]] = Tax(id=i, tax_id=row[0], parent_tax_id=row[1], rank=row[2])
     return taxes
 
 
@@ -208,9 +201,11 @@ def taxtree():
         with zipfile.open('nodes.dmp') as fp:
             taxes = read_nodes_dmp(fp)
 
-    # fix name
+    # additional attributes
     for tax in taxes.values():
-        tax.fix_name(names)
+        if tax.parent_tax_id:
+            tax.parent_id = taxes[tax.parent_tax_id].id
+        tax.name = names[tax.tax_id]
 
     Base.metadata.create_all(get_engine())
     # save
@@ -222,18 +217,8 @@ def taxtree():
             saved += 1
             sys.stdout.write('\rSaving %d/%d' % (saved, total))
             sys.stdout.flush()
+        print()
         session.commit()
-
-        # update parent taxonomy
-        updated = 0
-        for tax in taxes.values():
-            tax.fix_parent(taxes)
-            session.add(tax)
-            updated += 1
-            sys.stdout.write('\rUpdating %d/%d' % (updated, total))
-            sys.stdout.flush()
-        session.commit()
-
     print(f'{total} taxonomies saved.')
 
 
