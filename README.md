@@ -6,7 +6,6 @@ Supported features:
 1. download data from NCBI automatically.
 2. use SQLite and SQLAlchemy to persist data.
 3. retrieve ancestor taxonomy in any rank.
-4. retrieve lineage for a given NCBI taxonomy ID.
 
 ## installation
 
@@ -47,15 +46,4 @@ with get_scoped_session() as session:
     tax = session.query(Tax).filter_by(tax_id='9606').first()
     kingdom_tax = tax.get_ancestor(KINGDOM)
     phylum_tax = tax.get_ancestor(PHYLUM)
-```
-
-### get lineage
-
-```python
-from taxtree import get_scoped_session, Tax
-
-with get_scoped_session() as session:
-    tax = session.query(Tax).filter_by(tax_id='9606').first()
-    lineage = tax.get_lineage()
-    print(lineage)
 ```

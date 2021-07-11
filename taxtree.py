@@ -26,7 +26,7 @@ __all__ = [
     'KINGDOM', 'PHYLUM', 'CLASS', 'ORDER',
     'FAMILY', 'GENUS', 'SPECIES', 'get_taxtree_dir',
     'get_dbfile', 'get_engine', 'get_session',
-    'get_scoped_session', 'Lineage', 'Tax'
+    'get_scoped_session', 'Tax'
 ]
 
 
@@ -76,31 +76,6 @@ def get_scoped_session():
 Base = declarative_base()
 
 
-class Lineage(object):
-    def __init__(
-            self, kingdom=None, phylum=None, class_=None,
-            order=None, family=None, genus=None, species=None
-    ):
-        self.kingdom = kingdom
-        self.phylum = phylum
-        self.class_ = class_
-        self.order = order
-        self.family = family
-        self.genus = genus
-        self.species = species
-
-    def __repr__(self):
-        return 'Lineage<kingdom=%s, phylum=%s, class=%s, order=%s, family=%s, genus=%s, species=%s>' % (
-            self.kingdom if self.kingdom else '',
-            self.phylum if self.phylum else '',
-            self.class_ if self.class_ else '',
-            self.order if self.order else '',
-            self.family if self.family else '',
-            self.genus if self.genus else '',
-            self.species if self.species else '',
-        )
-
-
 class Tax(Base):
     __tablename__ = 'tax'
 
@@ -131,17 +106,6 @@ class Tax(Base):
         if self.parent is None:
             return None
         return self.parent.get_ancestor(rank)
-
-    def get_lineage(self):
-        return Lineage(
-            kingdom=self.get_ancestor(KINGDOM),
-            phylum=self.get_ancestor(PHYLUM),
-            class_=self.get_ancestor(CLASS),
-            order=self.get_ancestor(ORDER),
-            family=self.get_ancestor(FAMILY),
-            genus=self.get_ancestor(GENUS),
-            species=self.get_ancestor(SPECIES)
-        )
 
 
 def dl_taxdmp_zip(outfile):
