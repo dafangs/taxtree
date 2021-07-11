@@ -24,32 +24,16 @@ Just run:
 taxtree
 ```
 
-TaxTree assume the current directory as cache, if this directory
-has a file named `taxdmp.zip`, TaxTree will omit downloading. You
-can change cache directory:
-
-```
-taxtree -c /path/to/taxdump/
-```
-
-`TaxTree` default create `SQLite` data file under current directory,
-if you want to change:
-
-```
-export TAX_TREE_DBFILE = 'my_taxtree.db'
-taxtree
-```
-
-Note that if you change `SQLite` data file may be either current directory
-or `TAX_TREE_DBFILE`.
+1. All data were saved to `~/.taxtree`
+2. Downloaded `taxdmp.zip` path: `~/.taxtree/taxdmp.zip`
+3. Persistent data file path: `~/.taxtree/taxtree.db`
 
 ### search taxonomy
 
 ```python
-from taxtree import get_session, Tax
+from taxtree import get_scoped_session, Tax
 
-
-with get_session() as session:
+with get_scoped_session() as session:
     tax = session.query(Tax).filter_by(tax_id='9606').first()
 ```
 
@@ -57,10 +41,9 @@ with get_session() as session:
 ### get ancestor
 
 ```python
-from taxtree import get_session, Tax, KINGDOM, PHYLUM
+from taxtree import get_scoped_session, Tax, KINGDOM, PHYLUM
 
-
-with get_session() as session:
+with get_scoped_session() as session:
     tax = session.query(Tax).filter_by(tax_id='9606').first()
     kingdom_tax = tax.get_ancestor(KINGDOM)
     phylum_tax = tax.get_ancestor(PHYLUM)
@@ -68,12 +51,10 @@ with get_session() as session:
 
 ### get lineage
 
-
 ```python
-from taxtree import get_session, Tax
+from taxtree import get_scoped_session, Tax
 
-
-with get_session() as session:
+with get_scoped_session() as session:
     tax = session.query(Tax).filter_by(tax_id='9606').first()
     lineage = tax.get_lineage()
     print(lineage)

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-import os
 import sys
+from os import makedirs
 from zipfile import ZipFile
-from os.path import join, exists
 from contextlib import contextmanager
+from os.path import join, exists, expanduser
 
 import click
 import requests
@@ -22,6 +22,14 @@ from sqlalchemy import (
 )
 
 
+__all__ = [
+    'KINGDOM', 'PHYLUM', 'CLASS', 'ORDER',
+    'FAMILY', 'GENUS', 'SPECIES', 'get_taxtree_dir',
+    'get_dbfile', 'get_engine', 'get_session',
+    'get_scoped_session', 'Lineage', 'Tax'
+]
+
+
 KINGDOM = 'kingdom'
 PHYLUM = 'phylum'
 CLASS = 'class'
@@ -32,12 +40,18 @@ SPECIES = 'species'
 FIELD_TERMINATOR = '\t|\t'
 LINE_TERMINATOR = '\t|\n'
 SCIENTIFIC_NAME = 'scientific name'
-DBFILE_VAR_NAME = 'TAX_TREE_DBFILE'
-DEFAULT_DBFILE = './taxtree.db'
+DBFILE = 'taxtree.db'
+
+
+def get_taxtree_dir():
+    taxtree_dir = expanduser('~/.taxtree')
+    if not exists(taxtree_dir):
+        makedirs(taxtree_dir)
+    return taxtree_dir
 
 
 def get_dbfile():
-    return os.environ.get(DBFILE_VAR_NAME, DEFAULT_DBFILE)
+    return join(get_taxtree_dir(), DBFILE)
 
 
 def get_engine():
@@ -46,9 +60,13 @@ def get_engine():
     )
 
 
-@contextmanager
 def get_session():
-    session = sessionmaker(bind=get_engine())()
+    return sessionmaker(bind=get_engine())()
+
+
+@contextmanager
+def get_scoped_session():
+    session = get_session()
     try:
         yield session
     finally:
@@ -172,36 +190,15 @@ def read_nodes_dmp(fp):
     return taxes
 
 
-def save_to_database(session, taxes):
-    def save(tax):
-        if not tax.id:
-            if tax.parent is not None:
-                save(tax.parent)
-            session.add(tax)
-            session.commit()
-        return tax
-
-    total = len(taxes)
-    saved = 0
-    for tax in taxes.values():
-        save(tax)
-        saved += 1
-        sys.stdout.write('\rSaving %s/%s' % (saved, total))
-        sys.stdout.flush()
-
-
 @click.command()
-@click.option(
-    '-c', '--cache-dir', type=click.Path(exists=True),
-    default='.', show_default=True, help='cache directory'
-)
-def taxtree(cache_dir):
+def taxtree():
     """TaxTree initialize database"""
     # download taxdmp.zip
-    taxdmp_zip = join(cache_dir, 'taxdmp.zip')
+    taxdmp_zip = join(get_taxtree_dir(), 'taxdmp.zip')
     if not exists(taxdmp_zip):
         dl_taxdmp_zip(taxdmp_zip)
 
+    # read names.dmp and nodes.dmp
     with ZipFile(taxdmp_zip) as zipfile:
         print('Reading names.dmp...')
         with zipfile.open('names.dmp') as fp:
@@ -211,13 +208,33 @@ def taxtree(cache_dir):
         with zipfile.open('nodes.dmp') as fp:
             taxes = read_nodes_dmp(fp)
 
-        for tax in taxes.values():
-            tax.fix_parent(taxes)
-            tax.fix_name(names)
+    # fix name
+    for tax in taxes.values():
+        tax.fix_name(names)
 
     Base.metadata.create_all(get_engine())
-    with get_session() as session:
-        save_to_database(session, taxes)
+    # save
+    with get_scoped_session() as session:
+        saved = 0
+        total = len(taxes)
+        for tax in taxes.values():
+            session.add(tax)
+            saved += 1
+            sys.stdout.write('\rSaving %d/%d' % (saved, total))
+            sys.stdout.flush()
+        session.commit()
+
+        # update parent taxonomy
+        updated = 0
+        for tax in taxes.values():
+            tax.fix_parent(taxes)
+            session.add(tax)
+            updated += 1
+            sys.stdout.write('\rUpdating %d/%d' % (updated, total))
+            sys.stdout.flush()
+        session.commit()
+
+    print(f'{total} taxonomies saved.')
 
 
 if __name__ == '__main__':
