@@ -84,6 +84,7 @@ class Tax(Base):
     parent_tax_id = Column(String(20), index=True, nullable=True)
     parent_id = Column(Integer, ForeignKey('tax.id'), index=True)
     rank = Column(String(100), index=True)
+    division_id = Column(Integer, index=True)
     name = Column(String(100), index=True)
     parent = relationship('Tax', remote_side=[id])
 
@@ -143,7 +144,13 @@ def read_nodes_dmp(fp):
         if row[0] == '1':
             taxes[row[0]] = Tax(id=i, tax_id=row[0], rank=row[2])
         else:
-            taxes[row[0]] = Tax(id=i, tax_id=row[0], parent_tax_id=row[1], rank=row[2])
+            taxes[row[0]] = Tax(
+                id=i,
+                tax_id=row[0],
+                parent_tax_id=row[1],
+                rank=row[2],
+                division_id=row[4]
+            )
     return taxes
 
 
